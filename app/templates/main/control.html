@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Control - Karaoke{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Panel de Control</h2>
+    
+    <!-- Lista de Canciones -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Lista de Reproducción</h3>
+        </div>
+        <div class="card-body">
+            {% if songs %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Artista</th>
+                            <th>Agregado por</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for song in songs %}
+                        <tr>
+                            <td>{{ song.title }}</td>
+                            <td>{{ song.artist }}</td>
+                            <td>{{ song.added_by }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" 
+                                        onclick="removeSong({{ song.id }})">
+                                    Eliminar
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No hay canciones en la lista</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Controles -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Controles</h3>
+        </div>
+        <div class="card-body">
+            <button class="btn btn-primary" onclick="nextSong()">
+                Siguiente Canción
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function removeSong(songId) {
+    if (confirm('¿Estás seguro de querer eliminar esta canción?')) {
+        fetch(`/remove_song/${songId}`, {
+            method: 'POST',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error al eliminar la canción');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al eliminar la canción');
+        });
+    }
+}
+
+function nextSong() {
+    fetch('/next_song', {
+        method: 'POST',
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error al pasar a la siguiente canción');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al pasar a la siguiente canción');
+    });
+}
+</script>
+{% endblock %}

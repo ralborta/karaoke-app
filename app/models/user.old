@@ -1,0 +1,103 @@
+from app.extensions import db
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(128))
+    is_admin = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    date_joined = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relaciones
+    performances = db.relationship('Performance', backref='user', lazy='dynamic',
+                                 cascade='all, delete-orphan')
+
+    def __init__(self, username, email, password=None, is_admin=False):
+        self.username = username
+        self.email = email
+        if password:
+            self.set_password(password)
+        self.is_admin = is_admin
+
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def get_id(self):
+        return str(self.id)
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    def update_last_seen(self):
+        self.last_seen = datetime.utcnow()
+        db.session.commit()
+
+    def get_performance_stats(self):
+        """Obtiene estadísticas de rendimiento del usuario"""
+        performances = self.performances.all()
+        total_performances = len(performances)
+        if total_performances == 0:
+            return {
+                'total_songs': 0,
+                'average_score': 0,
+                'best_score': 0,
+                'total_time': 0
+            }
+
+        total_score = sum(p.score for p in performances if p.score is not None)
+        best_score = max((p.score for p in performances if p.score is not None), default=0)
+        
+        return {
+            'total_songs': total_performances,
+            'average_score': total_score / total_performances if total_performances > 0 else 0,
+            'best_score': best_score,
+            'total_time': len(performances) * 3  # Asumiendo 3 minutos por canción
+        }
+
+    @staticmethod
+    def verify_reset_password_token(token):
+        try:
+            id = jwt.decode(token, current_app.config['SECRET_KEY'],
+                          algorithms=['HS256'])['reset_password']
+        except:
+            return
+        return User.query.get(id)
+
+    def to_dict(self):
+        """Convierte el usuario a diccionario para API"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'is_admin': self.is_admin,
+            'date_joined': self.date_joined.isoformat(),
+            'last_seen': self.last_seen.isoformat(),
+            'performance_count': self.performances.count()
+        }
+
+    @staticmethod
+    def create_admin(username, email, password):
+        """Crea un usuario administrador"""
+        admin = User(
+            username=username,
+            email=email,
+            password=password,
+            is_admin=True
+        )
+        db.session.add(admin)
+        db.session.commit()
+        return admin

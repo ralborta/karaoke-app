@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Canciones Disponibles</h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#searchModal">
+                <i class="fas fa-plus"></i> Agregar Canción
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for song in songs %}
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <img src="{{ song.thumbnail_url }}" class="card-img-top" alt="{{ song.title }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ song.title }}</h5>
+                    <p class="card-text">{{ song.artist }}</p>
+                    <a href="{{ url_for('main.karaoke', song_id=song.id) }}" class="btn btn-primary">
+                        <i class="fas fa-microphone"></i> ¡Cantar!
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal de búsqueda -->
+<div class="modal fade" id="searchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Buscar Canción</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <input type="text" id="searchQuery" class="form-control" placeholder="Buscar canción...">
+                    <button class="btn btn-primary" onclick="searchSongs()">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </div>
+                <div id="searchResults"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function searchSongs() {
+    const query = document.getElementById('searchQuery').value;
+    fetch(`/search?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            const resultsDiv = document.getElementById('searchResults');
+            resultsDiv.innerHTML = '';
+            data.forEach(song => {
+                const songDiv = document.createElement('div');
+                songDiv.className = 'card mb-2';
+                songDiv.innerHTML = `
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title">${song.title}</h6>
+                                <p class="card-text small">${song.channel}</p>
+                            </div>
+                            <button onclick="addSong('${song.video_id}', '${song.title.replace("'", "\\'")}')" 
+                                    class="btn btn-sm btn-success">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.appendChild(songDiv);
+            });
+        });
+}
+
+function addSong(videoId, title) {
+    fetch('/song/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            video_id: videoId,
+            title: title
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error al agregar la canción');
+        }
+    });
+}
+</script>
+{% endblock %}
+{% endblock %}

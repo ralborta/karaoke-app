@@ -1,0 +1,139 @@
+from app import create_app
+from app.extensions import db
+from app.models.user import User
+from app.models.song import Song, Performance
+import os
+from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash
+import logging
+import sqlite3
+
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Crear la aplicación
+app = create_app()
+
+# Configurar el contexto del shell de Flask
+@app.shell_context_processor
+def make_shell_context():
+    return {
+        'db': db,
+        'User': User,
+        'Song': Song,
+        'Performance': Performance
+    }
+
+def create_database():
+    """Crear la base de datos SQLite si no existe"""
+    if not os.path.exists('instance'):
+        os.makedirs('instance')
+        logger.info("Directorio instance creado")
+    
+    db_path = os.path.join('instance', 'karaoke.db')
+    if not os.path.exists(db_path):
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.close()
+            logger.info("Archivo de base de datos creado")
+        except Exception as e:
+            logger.error(f"Error creando archivo de base de datos: {e}")
+            raise
+
+def init_db():
+    """Inicializar la base de datos y crear tablas"""
+    with app.app_context():
+        try:
+            # Crear todas las tablas
+            db.create_all()
+            logger.info("Tablas de la base de datos creadas correctamente")
+            
+            # Crear usuario admin si no existe
+            admin = User.query.filter_by(username='admin').first()
+            if not admin:
+                admin = User(
+                    username='admin',
+                    email='admin@example.com',
+                    is_admin=True
+                )
+                admin.set_password('admin')
+                db.session.add(admin)
+                db.session.commit()
+                logger.info("Usuario admin creado correctamente")
+                logger.info("Username: admin")
+                logger.info("Password: admin")
+            else:
+                logger.info("El usuario admin ya existe")
+                
+        except Exception as e:
+            logger.error(f"Error en la inicialización: {str(e)}")
+            db.session.rollback()
+            raise
+
+def verify_directories():
+    """Verificar y crear los directorios necesarios"""
+    directories = [
+        'instance',
+        'logs',
+        'app/static/uploads',
+        'app/templates/errors',
+        'app/templates/auth',
+        'app/templates/main'
+    ]
+    
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            logger.info(f"Directorio creado: {directory}")
+
+def verify_config():
+    """Verificar la configuración necesaria"""
+    required_env = ['YOUTUBE_API_KEY']
+    missing_env = []
+    
+    for env in required_env:
+        if not os.getenv(env):
+            missing_env.append(env)
+            logger.warning(f"Variable de entorno no encontrada: {env}")
+    
+    if missing_env:
+        logger.warning("Algunas variables de entorno necesarias no están configuradas")
+
+if __name__ == '__main__':
+    try:
+        # Verificar directorios
+        verify_directories()
+        
+        # Verificar configuración
+        verify_config()
+        
+        # Crear base de datos si no existe
+        create_database()
+        
+        # Inicializar la base de datos y crear admin
+        init_db()
+        
+        # Mensaje de inicio
+        logger.info("=== Karaoke App ===")
+        logger.info("Servidor iniciado en: http://192.168.1.87:5001")
+        logger.info("Usuario admin creado:")
+        logger.info("  Username: admin")
+        logger.info("  Password: admin")
+        
+        # Ejecutar la aplicación
+        app.run(
+            host='0.0.0.0',
+            port=5001,
+            debug=True
+        )
+    except Exception as e:
+        logger.error(f"Error al iniciar la aplicación: {str(e)}")
+        logger.error("Deteniendo la aplicación...")
+        exit(1)

@@ -1,0 +1,73 @@
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
+from app.extensions import db, login_manager
+from config import Config
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+
+    # Inicializar extensiones
+    db.init_app(app)
+    login_manager.init_app(app)
+
+    # Configurar logging
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    file_handler = RotatingFileHandler('logs/karaoke.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Karaoke App startup')
+
+    # Registrar blueprints
+    from app.routes.main import main
+    from app.routes.auth import auth
+    app.register_blueprint(main)
+    app.register_blueprint(auth)
+
+    # Configurar manejador de errores
+    from app.errors import not_found_error, internal_error
+    app.register_error_handler(404, not_found_error)
+    app.register_error_handler(500, internal_error)
+
+    # Configurar el cargador de usuario para Flask-Login
+    from app.models.user import User
+    @login_manager.user_loader
+    def load_user(id):
+        return User.query.get(int(id))
+
+    # Crear todas las tablas de la base de datos
+    with app.app_context():
+        try:
+            db.create_all()
+            app.logger.info('Base de datos inicializada correctamente')
+        except Exception as e:
+            app.logger.error(f'Error al inicializar la base de datos: {str(e)}')
+
+    return app
+
+# Crear el archivo errors.py si no existe
+def create_error_handlers():
+    error_handlers = """
+from flask import render_template
+from app import db
+
+def not_found_error(error):
+    return render_template('errors/404.html'), 404
+
+def internal_error(error):
+    db.session.rollback()
+    return render_template('errors/500.html'), 500
+"""
+    
+    if not os.path.exists('app/errors.py'):
+        with open('app/errors.py', 'w') as f:
+            f.write(error_handlers)

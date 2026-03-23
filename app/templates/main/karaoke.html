@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}{{ song.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="ratio ratio-16x9">
+                        <iframe src="https://www.youtube.com/embed/{{ song.youtube_id }}?autoplay=1&mute=0" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body text-center">
+                    <button id="startButton" class="btn btn-lg btn-success" onclick="startRecording()">
+                        <i class="fas fa-microphone"></i> Comenzar a Cantar
+                    </button>
+                    <button id="stopButton" class="btn btn-lg btn-danger d-none" onclick="stopRecording()">
+                        <i class="fas fa-stop"></i> Detener
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Tu Puntuación</h4>
+                </div>
+                <div class="card-body">
+                    <div id="scoreDisplay" class="text-center mb-4">
+                        <h2 id="finalScore">--</h2>
+                    </div>
+                    <div id="metrics" class="d-none">
+                        <div class="mb-3">
+                            <label>Tono</label>
+                            <div class="progress">
+                                <div id="pitchScore" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label>Ritmo</label>
+                            <div class="progress">
+                                <div id="rhythmScore" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label>Energía</label>
+                            <div class="progress">
+                                <div id="energyScore" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="feedback" class="alert alert-info d-none"></div>
+                    <a href="{{ url_for('main.index') }}" class="btn btn-primary d-none" id="menuButton">
+                        <i class="fas fa-home"></i> Volver al Menú
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let startTime;
+
+async function setupMediaRecorder() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const formData = new FormData();
+            formData.append('audio', audioBlob);
+            formData.append('duration', (Date.now() - startTime) / 1000);
+            
+            try {
+                const response = await fetch('/performance/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                showResults(data);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al analizar la grabación');
+            }
+        };
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al acceder al micrófono');
+    }
+}
+
+function startRecording() {
+    audioChunks = [];
+    startTime = Date.now();
+    mediaRecorder.start();
+    document.getElementById('startButton').classList.add('d-none');
+    document.getElementById('stopButton').classList.remove('d-none');
+}
+
+function stopRecording() {
+    mediaRecorder.stop();
+    document.getElementById('stopButton').classList.add('d-none');
+}
+
+function showResults(data) {
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const metrics = document.getElementById('metrics');
+    const feedback = document.getElementById('feedback');
+    const menuButton = document.getElementById('menuButton');
+    
+    document.getElementById('finalScore').textContent = data.score || 'N/A';
+    
+    if (data.pitch_score) {
+        document.getElementById('pitchScore').style.width = `${data.pitch_score}%`;
+        document.getElementById('rhythmScore').style.width = `${data.rhythm_score}%`;
+        document.getElementById('energyScore').style.width = `${data.energy_score}%`;
+        metrics.classList.remove('d-none');
+    }
+    
+    if (data.feedback) {
+        feedback.textContent = data.feedback;
+        feedback.classList.remove('d-none');
+    }
+    
+    menuButton.classList.remove('d-none');
+    
+    // Guardar el resultado
+    fetch('/performance/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            song_id: {{ song.id }},
+            score: data.score || 0,
+            pitch_score: data.pitch_score || 0,
+            rhythm_score: data.rhythm_score || 0,
+            energy_score: data.energy_score || 0
+        })
+    });
+
+    // Redirigir al menú después de 5 segundos
+    setTimeout(() => {
+        window.location.href = "{{ url_for('main.index') }}";
+    }, 5000);
+}
+
+setupMediaRecorder();
+</script>
+{% endblock %}
+{% endblock %}

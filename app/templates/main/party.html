@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Fiesta Karaoke{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Fiesta Karaoke</h2>
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Próximos cantantes</h5>
+                <div class="song-list">
+                    {% if songs %}
+                        <ul class="list-group">
+                        {% for song in songs %}
+                            <li class="list-group-item">
+                                {{ song.title }} - {{ song.artist }}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No hay canciones en la lista</p>
+                    {% endif %}
+                </div>
+                <button class="btn btn-primary mt-3" data-toggle="modal" data-target="#addSongModal">
+                    Agregar Canción
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para agregar canción -->
+<div class="modal fade" id="addSongModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Canción</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('main.add_song') }}" method="POST">
+                    <div class="form-group">
+                        <label for="songSearch">Buscar canción:</label>
+                        <input type="text" class="form-control" id="songSearch" name="query">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Agregar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

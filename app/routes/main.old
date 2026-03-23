@@ -1,0 +1,98 @@
+from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify
+from flask_login import login_required, current_user
+from app.models.user import User
+from app.models.song import Song, Performance
+from app.extensions import db
+import logging
+import os
+from datetime import datetime
+
+main_bp = Blueprint('main', __name__)
+logger = logging.getLogger(__name__)
+
+@main_bp.route('/')
+def index():
+    return redirect(url_for('main.party'))
+
+@main_bp.route('/party')
+def party():
+    songs = Song.query.all()
+    return render_template('main/party.html', songs=songs)
+
+@main_bp.route('/party/control')
+@login_required
+def party_control():
+    if not current_user.is_admin:
+        flash('No tienes permisos para acceder al panel de control', 'danger')
+        return redirect(url_for('main.party'))
+    
+    songs = Song.query.all()
+    return render_template('main/control.html', songs=songs)
+
+@main_bp.route('/search', methods=['POST'])
+def search():
+    query = request.form.get('query', '')
+    try:
+        # Aquí iría la lógica de búsqueda de canciones
+        # Por ahora retornamos una respuesta simulada
+        results = []
+        return jsonify({'results': results})
+    except Exception as e:
+        logger.error(f"Error en búsqueda: {str(e)}")
+        return jsonify({'error': 'Error en la búsqueda'}), 500
+
+@main_bp.route('/add_song', methods=['POST'])
+@login_required
+def add_song():
+    try:
+        title = request.form.get('title')
+        artist = request.form.get('artist')
+        youtube_id = request.form.get('youtube_id')
+        
+        song = Song(
+            title=title,
+            artist=artist,
+            youtube_id=youtube_id,
+            added_by=current_user.id
+        )
+        
+        db.session.add(song)
+        db.session.commit()
+        
+        flash('Canción agregada exitosamente', 'success')
+        return redirect(url_for('main.party'))
+        
+    except Exception as e:
+        logger.error(f"Error agregando canción: {str(e)}")
+        db.session.rollback()
+        flash('Error al agregar la canción', 'danger')
+        return redirect(url_for('main.party'))
+
+@main_bp.route('/next_song', methods=['POST'])
+@login_required
+def next_song():
+    if not current_user.is_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+    
+    try:
+        # Aquí iría la lógica para pasar a la siguiente canción
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error pasando a siguiente canción: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/remove_song/<int:song_id>', methods=['POST'])
+@login_required
+def remove_song(song_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+    
+    try:
+        song = Song.query.get_or_404(song_id)
+        db.session.delete(song)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error eliminando canción: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

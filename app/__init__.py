@@ -18,20 +18,26 @@ def create_app(config_name='default'):
     # Cargar configuración
     app.config.from_object(config[config_name])
     
-    # Asegurar que exista el directorio de logs
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-    
-    # Configurar log handler
-    if not app.debug and not app.testing:
-        file_handler = RotatingFileHandler('logs/karaoke.log', 
-                                         maxBytes=10240, 
-                                         backupCount=10)
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
+    # Asegurar que exista el directorio de logs si no estamos en Vercel
+    if not os.environ.get('VERCEL'):
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
+        
+        # Configurar log handler
+        if not app.debug and not app.testing:
+            file_handler = RotatingFileHandler('logs/karaoke.log', 
+                                             maxBytes=10240, 
+                                             backupCount=10)
+            file_handler.setFormatter(logging.Formatter(
+                '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+            ))
+            file_handler.setLevel(logging.INFO)
+            app.logger.addHandler(file_handler)
+    else:
+        import sys
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(logging.INFO)
+        app.logger.addHandler(stream_handler)
     
     app.logger.setLevel(logging.INFO)
     app.logger.info('Karaoke App startup')
@@ -53,4 +59,17 @@ def create_app(config_name='default'):
     app.register_error_handler(404, not_found_error)
     app.register_error_handler(500, internal_error)
     
+    # Inicializar Base de Datos en Memoria Temporal para Vercel
+    if os.environ.get('VERCEL'):
+        with app.app_context():
+            db.create_all()
+            from app.models.user import User
+            admin = User.query.filter_by(username='admin').first()
+            if not admin:
+                admin = User(username='admin', email='admin@example.com', is_admin=True)
+                admin.set_password('admin')
+                db.session.add(admin)
+                db.session.commit()
+                app.logger.info("Admin user created for Vercel instance")
+                
     return app

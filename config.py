@@ -10,8 +10,10 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or '7MEYd7EyHLB-9OjdojhrM0IlwFoP'
     
     # Configuración de la base de datos
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'karaoke.db')
+    if os.environ.get('VERCEL'):
+        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:////tmp/karaoke.db'
+    else:
+        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///' + os.path.join(basedir, 'karaoke.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Configuración de la sesión

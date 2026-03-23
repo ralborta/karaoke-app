@@ -32,24 +32,98 @@
 
 <!-- Modal para agregar canción -->
 <div class="modal fade" id="addSongModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Agregar Canción</h5>
+                <h5 class="modal-title">Agregar Canción de YouTube</h5>
                 <button type="button" class="close" data-dismiss="modal">
                     <span>&times;</span>
                 </button>
             </div>
             <div class="modal-body">
-                <form action="{{ url_for('main.add_song') }}" method="POST">
+                <form id="searchForm">
                     <div class="form-group">
-                        <label for="songSearch">Buscar canción:</label>
-                        <input type="text" class="form-control" id="songSearch" name="query">
+                        <label for="songSearch">Buscar en YouTube:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="songSearch" name="query" placeholder="Ej: Luis Miguel La Incondicional Karaoke" required>
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-primary" id="btnSearch">Buscar</button>
+                            </div>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Agregar</button>
                 </form>
+                <div id="searchResults" class="mt-3">
+                    <!-- Resultados aparecerán aquí -->
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<form id="addSongActionForm" action="{{ url_for('main.add_song') }}" method="POST" class="d-none">
+    <input type="hidden" name="title" id="hiddenTitle">
+    <input type="hidden" name="youtube_id" id="hiddenYoutubeId">
+    <input type="hidden" name="artist" value="YouTube">
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('searchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const query = document.getElementById('songSearch').value;
+    const btn = document.getElementById('btnSearch');
+    const resultsDiv = document.getElementById('searchResults');
+    
+    if (!query) return;
+    
+    btn.disabled = true;
+    btn.textContent = 'Buscando...';
+    // Muestra un pequeño aviso de carga
+    resultsDiv.innerHTML = '<div class="text-center font-weight-bold my-4 text-primary">Buscando en YouTube...</div>';
+    
+    try {
+        const formData = new FormData();
+        formData.append('query', query);
+        
+        const res = await fetch('{{ url_for("main.search") }}', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (data.error) {
+            resultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        } else {
+            let html = '<div class="list-group">';
+            data.results.forEach(item => {
+                // Escapar comillas para evitar fallos de Javascript
+                const safeTitle = item.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                html += `
+                <button type="button" class="list-group-item list-group-item-action d-flex align-items-center mb-2 shadow-sm rounded border" onclick="addSong('${safeTitle}', '${item.videoId}')">
+                    <img src="${item.thumbnail}" width="120" height="90" class="mr-3 rounded" style="object-fit: cover;">
+                    <div class="text-left w-100">
+                        <h6 class="mb-1 text-dark" style="font-size: 1.1rem; font-weight: 600;">${item.title}</h6>
+                        <span class="badge badge-success px-2 py-1 mt-1">▶ Añadir a la lista de cantantes</span>
+                    </div>
+                </button>
+                `;
+            });
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+    } catch (err) {
+        resultsDiv.innerHTML = `<div class="alert alert-danger">Error conectando al servidor para buscar... Verifica que la YOUTUBE_API_KEY esté correctamente configurada.</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Buscar';
+    }
+});
+
+function addSong(title, youtubeId) {
+    document.getElementById('hiddenTitle').value = title;
+    document.getElementById('hiddenYoutubeId').value = youtubeId;
+    document.getElementById('addSongActionForm').submit();
+}
+</script>
 {% endblock %}

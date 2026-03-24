@@ -55,11 +55,11 @@
                                     </span>
                                 </td>
                                 <td class="border-top-0 align-middle text-right">
-                                    <a href="{{ url_for('main.karaoke', song_id=song.id) }}" class="btn btn-sm btn-success mr-2 shadow-sm" target="_blank" title="Abre el karaoke en una nueva pestaña para capturarlo en OBS.">
-                                        <i class="fas fa-play"></i> Emitir
-                                    </a>
+                                    <button class="btn btn-sm btn-success mr-2 shadow-sm" onclick="emitSong({{ song.id }}, '{{ song.youtube_id }}')" title="Reproducir este video automáticamente en las pantallas de todos los invitados.">
+                                        <i class="fas fa-bolt"></i> Emitir a Todos
+                                    </button>
                                     <button class="btn btn-sm btn-danger shadow-sm" onclick="removeSong({{ song.id }})">
-                                        <i class="fas fa-check"></i> Marcar Cantada / Eliminar
+                                        <i class="fas fa-trash"></i> Eliminar
                                     </button>
                                 </td>
                             </tr>
@@ -82,6 +82,32 @@
 
 {% block extra_js %}
 <script>
+async function emitSong(songId, youtubeId) {
+    try {
+        // 1. Actualiza el stream global con el video de esta canción
+        const res = await fetch('/party/stream/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: youtubeId})
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            // 2. Eliminar la canción de la cola y recargar
+            const res2 = await fetch(`/remove_song/${songId}`, { method: 'POST' });
+            const data2 = await res2.json();
+            if (data2.success) {
+                location.reload();
+            } else {
+                alert("La canción se emitió pero hubo un error al borrarla de la cola.");
+            }
+        } else {
+            alert("Error al emitir: " + data.error);
+        }
+    } catch(e) {
+        alert("Error de conexión al emitir la canción.");
+    }
+}
 async function updateStreamUrl() {
     const url = document.getElementById('streamUrlInput').value;
     const btn = event.currentTarget;

@@ -11,7 +11,7 @@
                 <h4 class="mb-3 font-weight-bold" style="color: var(--primary-color);">
                     <i class="fab fa-youtube text-danger mr-2"></i> Transmisión en Vivo
                 </h4>
-                <div class="flex-grow-1 position-relative" style="background: rgba(0,0,0,0.4); border-radius: 12px; overflow: hidden; min-height: 400px;">
+                <div id="streamContainer" class="flex-grow-1 position-relative" style="background: rgba(0,0,0,0.4); border-radius: 12px; overflow: hidden; min-height: 400px;">
                     {% if stream_url %}
                         <iframe src="{% if 'youtube.com' not in stream_url and 'youtu.be' not in stream_url %}https://www.youtube.com/embed/{{ stream_url }}?autoplay=1{% else %}{{ stream_url }}{% endif %}" 
                                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
@@ -30,7 +30,7 @@
         <div class="col-lg-4 h-100">
             <div class="glass-card p-4 h-100 d-flex flex-column">
                 <h4 class="mb-4 font-weight-bold text-white">Cola de Cantantes</h4>
-                <div class="flex-grow-1" style="overflow-y: auto;">
+                <div id="queueList" class="flex-grow-1" style="overflow-y: auto;">
                     {% if songs %}
                         <div class="list-group">
                         {% for song in songs %}
@@ -103,6 +103,62 @@
 
 {% block extra_js %}
 <script>
+let currentStreamUrl = "{{ stream_url }}";
+
+async function pollState() {
+    try {
+        const res = await fetch('/party/state');
+        const data = await res.json();
+        
+        if (data.stream_url !== currentStreamUrl) {
+            currentStreamUrl = data.stream_url;
+            const container = document.getElementById('streamContainer');
+            if (currentStreamUrl) {
+                let embedUrl = currentStreamUrl;
+                if (!embedUrl.includes('youtube.com') && !embedUrl.includes('youtu.be')) {
+                    embedUrl = 'https://www.youtube.com/embed/' + currentStreamUrl + '?autoplay=1';
+                }
+                container.innerHTML = `<iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            } else {
+                container.innerHTML = `<div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center text-muted">
+                    <i class="fas fa-video fa-3x mb-3" style="opacity: 0.5;"></i>
+                    <h5 style="opacity: 0.7;">Esperando que el Host inicie la cámara...</h5>
+                </div>`;
+            }
+        }
+        
+        const queueList = document.getElementById('queueList');
+        if (data.queue && data.queue.length > 0) {
+            let html = '<div class="list-group">';
+            data.queue.forEach(song => {
+                html += `
+                <div class="list-group-item d-flex align-items-center mb-3 p-3 border-0">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px; background: rgba(183, 107, 255, 0.2); color: var(--accent-color);">
+                        <i class="fas fa-microphone"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-1 text-white font-weight-bold" style="font-size: 1.1rem;">${song.title}</h6>
+                        <p class="mb-0" style="color: var(--primary-color); font-size: 0.85rem;">
+                            Por: ${song.added_by}
+                        </p>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            queueList.innerHTML = html;
+        } else {
+            queueList.innerHTML = `
+            <div class="text-center text-muted mt-5">
+                <i class="fas fa-music fa-2x mb-3" style="opacity: 0.5;"></i>
+                <p>No hay canciones pendientes.</p>
+            </div>`;
+        }
+    } catch (e) {
+        console.error("Polling error", e);
+    }
+}
+setInterval(pollState, 3000);
+
 document.getElementById('searchForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = document.getElementById('songSearch').value;

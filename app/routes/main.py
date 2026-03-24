@@ -234,3 +234,23 @@ def update_stream():
 def get_stream():
     """Obtener la URL de transmisión en vivo actual"""
     return jsonify({'url': Setting.get_value('STREAM_URL', '')})
+
+@main_bp.route('/party/state', methods=['GET'])
+def party_state():
+    """Endpoint for clients to poll the live state of the party"""
+    try:
+        url = Setting.get_value('STREAM_URL', '')
+        songs = Song.query.order_by(Song.id.desc()).all()
+        queue = []
+        for s in songs:
+            queue.append({
+                'id': s.id,
+                'title': s.title,
+                'artist': s.artist,
+                'youtube_id': s.youtube_id,
+                'added_by': s.adder.username if s.adder else 'Anónimo'
+            })
+        return jsonify({'stream_url': url, 'queue': queue})
+    except Exception as e:
+        logger.error(f"Error fetching party state: {str(e)}")
+        return jsonify({'error': str(e)}), 500

@@ -12,6 +12,7 @@ class Song(db.Model):
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relaciones
+    adder = db.relationship('User', foreign_keys=[added_by], backref='added_songs', lazy=True)
     performances = db.relationship('Performance', backref='song', lazy=True)
     playlist_entries = db.relationship('PartyPlaylist', backref='song', lazy=True)
     

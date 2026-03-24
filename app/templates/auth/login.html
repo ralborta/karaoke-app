@@ -1,111 +1,67 @@
 {% extends "base.html" %}
 
-{% block title %}Iniciar Sesión - Karaoke App{% endblock %}
-
-{% block styles %}
-<style>
-    .login-container {
-        max-width: 400px;
-        margin: 50px auto;
-        padding: 20px;
-        background-color: #ffffff;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-
-    .login-container h2 {
-        text-align: center;
-        color: #333;
-        margin-bottom: 30px;
-    }
-
-    .form-group {
-        margin-bottom: 20px;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        color: #555;
-    }
-
-    .form-group input {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 16px;
-    }
-
-    .btn-primary {
-        width: 100%;
-        padding: 10px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 16px;
-        cursor: pointer;
-        transition: background-color 0.3s;
-    }
-
-    .btn-primary:hover {
-        background-color: #0056b3;
-    }
-
-    .alert {
-        padding: 10px;
-        margin-bottom: 20px;
-        border-radius: 4px;
-        text-align: center;
-    }
-
-    .alert-danger {
-        background-color: #f8d7da;
-        border: 1px solid #f5c6cb;
-        color: #721c24;
-    }
-</style>
-{% endblock %}
+{% block title %}Iniciar Sesión - Karaoke Live{% endblock %}
 
 {% block content %}
-<div class="login-container">
-    <h2>Iniciar Sesión</h2>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    {{ message }}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-md-5 col-lg-4">
+        <div class="glass-card p-5 text-center">
+            <div class="mb-4">
+                <i class="fas fa-compact-disc fa-spin text-primary fa-4x mb-3" style="filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.5));"></i>
+                <h2 class="text-white font-weight-bold">Bienvenido</h2>
+                <p class="text-muted">Ingresa a la Fiesta</p>
+            </div>
+            
+            <form method="POST" action="{{ url_for('auth.login') }}">
+                <div class="form-group text-left mb-4">
+                    <label for="username" class="text-white-50 small text-uppercase font-weight-bold tracking-wide">Usuario</label>
+                    <div class="input-group glass-input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-transparent border-0 text-primary"><i class="fas fa-user"></i></span>
+                        </div>
+                        <input type="text" class="form-control bg-transparent text-white border-0" id="username" name="username" required autocomplete="username" placeholder="Tu nombre de usuario">
+                    </div>
                 </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-    
-    <form method="POST" action="{{ url_for('auth.login') }}">
-        <div class="form-group">
-            <label for="username">Usuario:</label>
-            <input type="text" 
-                   id="username" 
-                   name="username" 
-                   required 
-                   autocomplete="username"
-                   placeholder="Ingresa tu usuario">
+                
+                <div class="form-group text-left mb-5">
+                    <label for="password" class="text-white-50 small text-uppercase font-weight-bold tracking-wide">Contraseña</label>
+                    <div class="input-group glass-input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-transparent border-0 text-primary"><i class="fas fa-lock"></i></span>
+                        </div>
+                        <input type="password" class="form-control bg-transparent text-white border-0" id="password" name="password" required autocomplete="current-password" placeholder="Tu contraseña seceta">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block btn-lg rounded-pill shadow-lg text-uppercase font-weight-bold mb-4" style="letter-spacing: 1px;">
+                    Entrar a Cantar <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+                
+                <p class="text-muted small">¿No tienes acceso? <a href="{{ url_for('auth.register') }}" class="text-accent text-decoration-none">Regístrate aquí</a></p>
+            </form>
         </div>
-        
-        <div class="form-group">
-            <label for="password">Contraseña:</label>
-            <input type="password" 
-                   id="password" 
-                   name="password" 
-                   required 
-                   autocomplete="current-password"
-                   placeholder="Ingresa tu contraseña">
-        </div>
-        
-        <button type="submit" class="btn btn-primary">
-            Iniciar Sesión
-        </button>
-    </form>
+    </div>
 </div>
+
+<style>
+.glass-input-group {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50px;
+    padding: 5px 15px;
+    transition: all 0.3s;
+}
+.glass-input-group:focus-within {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+}
+.form-control:focus {
+    box-shadow: none;
+    background: transparent;
+}
+.form-control::placeholder {
+    color: rgba(255,255,255,0.3);
+}
+</style>
 {% endblock %}

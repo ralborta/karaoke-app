@@ -33,6 +33,16 @@ def party():
         flash('Error al cargar la lista de canciones', 'danger')
         return render_template('main/party.html', songs=[])
 
+@main_bp.route('/tv')
+def tv():
+    """Pantalla gigante dedicada para televisores 100% Full Screen"""
+    try:
+        stream_url = Setting.get_value('STREAM_URL', '')
+        return render_template('main/tv.html', stream_url=stream_url)
+    except Exception as e:
+        logger.error(f"Error en TV: {str(e)}")
+        return "Error Loading TV Mode", 500
+
 @main_bp.route('/party/control')
 @login_required
 def party_control():

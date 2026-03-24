@@ -102,44 +102,158 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+.star-rating i {
+    font-size: 3rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s, transform 0.2s;
+}
+.star-rating i:hover, .star-rating i.hovered {
+    color: #ffc107;
+    transform: scale(1.1);
+}
+.star-rating i.selected {
+    color: #ffc107;
+}
+</style>
+
 <script>
 let currentStreamUrl = "{{ stream_url }}";
+let currentGlobalState = "IDLE";
+let currentYoutubeId = "";
+let countdownInterval = null;
+let hasVotedForSong = false;
+let currentSongIdForVote = "";
+
+function renderStream(url) {
+    const container = document.getElementById('streamContainer');
+    if (!url) {
+        container.innerHTML = `<div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center text-muted">
+            <i class="fas fa-video fa-3x mb-3" style="opacity: 0.5;"></i>
+            <h5 style="opacity: 0.7;">Esperando que el Host inicie...</h5>
+        </div>`;
+        return;
+    }
+    let embedUrl = url;
+    if (!embedUrl.includes('youtube.com') && !embedUrl.includes('youtu.be')) {
+        embedUrl = 'https://www.youtube.com/embed/' + url + '?autoplay=1';
+    }
+    container.innerHTML = `<iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+}
+
+function handleVotingUI(songId, singerName) {
+    if (currentSongIdForVote !== songId) {
+        currentSongIdForVote = songId;
+        hasVotedForSong = false;
+    }
+    const container = document.getElementById('streamContainer');
+    if (hasVotedForSong) {
+        container.innerHTML = `<div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center text-white bg-dark">
+            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+            <h2>¡Tu voto fue registrado!</h2>
+            <p class="text-muted">Esperando el siguiente cantante...</p>
+        </div>`;
+        return;
+    }
+    container.innerHTML = `<div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center text-white bg-dark pt-5">
+        <h2 class="mb-2 text-primary">¿Qué tal lo hizo ${singerName}?</h2>
+        <p class="mb-4 text-muted">Toca una estrella para calificar.</p>
+        <div class="star-rating d-flex mb-4">
+            <i class="fas fa-star mx-2" data-val="1"></i>
+            <i class="fas fa-star mx-2" data-val="2"></i>
+            <i class="fas fa-star mx-2" data-val="3"></i>
+            <i class="fas fa-star mx-2" data-val="4"></i>
+            <i class="fas fa-star mx-2" data-val="5"></i>
+        </div>
+    </div>`;
+    
+    // Star Logic
+    const stars = container.querySelectorAll('.star-rating i');
+    stars.forEach(star => {
+        star.addEventListener('mouseover', function() {
+            let val = parseInt(this.getAttribute('data-val'));
+            stars.forEach(s => {
+                if (parseInt(s.getAttribute('data-val')) <= val) s.classList.add('hovered');
+                else s.classList.remove('hovered');
+            });
+        });
+        star.addEventListener('mouseout', function() {
+            stars.forEach(s => s.classList.remove('hovered'));
+        });
+        star.addEventListener('click', async function() {
+            let val = parseInt(this.getAttribute('data-val'));
+            stars.forEach(s => {
+                if (parseInt(s.getAttribute('data-val')) <= val) s.classList.add('selected');
+            });
+            hasVotedForSong = true;
+            try {
+                await fetch('/party/vote/' + songId, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({score: val})
+                });
+                handleVotingUI(songId, singerName); // Re-render to show thanks
+            } catch(e) { alert("Error al votar"); }
+        });
+    });
+}
 
 async function pollState() {
     try {
         const res = await fetch('/party/state');
         const data = await res.json();
         
-        if (data.stream_url !== currentStreamUrl) {
-            currentStreamUrl = data.stream_url;
+        // 1. Manejo del Estado Global (Animaciones de la Pantalla Principal)
+        if (data.party_state === 'IDLE') {
+            if (currentGlobalState !== 'IDLE' || data.stream_url !== currentStreamUrl) {
+                currentGlobalState = 'IDLE';
+                currentStreamUrl = data.stream_url;
+                renderStream(currentStreamUrl);
+            }
+        } 
+        else if (data.party_state === 'COUNTDOWN') {
+            currentGlobalState = 'COUNTDOWN';
+            let remain = parseInt(data.countdown_end) - data.server_time;
             const container = document.getElementById('streamContainer');
-            if (currentStreamUrl) {
-                let embedUrl = currentStreamUrl;
-                if (!embedUrl.includes('youtube.com') && !embedUrl.includes('youtu.be')) {
-                    embedUrl = 'https://www.youtube.com/embed/' + currentStreamUrl + '?autoplay=1';
-                }
-                container.innerHTML = `<iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
-            } else {
-                container.innerHTML = `<div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center text-muted">
-                    <i class="fas fa-video fa-3x mb-3" style="opacity: 0.5;"></i>
-                    <h5 style="opacity: 0.7;">Esperando que el Host inicie la cámara...</h5>
+
+            if (remain > 0) {
+                let seconds = Math.ceil(remain / 1000);
+                container.innerHTML = `<div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center text-white" style="background: var(--bg-color);">
+                    <h3 class="mb-4">¡Pasa al frente...</h3>
+                    <h1 class="display-3 font-weight-bold text-primary mb-5">${data.current_singer}!</h1>
+                    <div class="display-1 font-weight-bold" style="color: var(--accent-color); font-size: 8rem;">${seconds}</div>
                 </div>`;
+            } else {
+                // Termina el countdown -> Pasa a PLAYING localmente (auto-play video)
+                if (currentYoutubeId !== data.current_youtube_id) {
+                    currentYoutubeId = data.current_youtube_id;
+                    renderStream(currentYoutubeId);
+                }
             }
         }
+        else if (data.party_state === 'VOTING') {
+            if (currentGlobalState !== 'VOTING') {
+                currentGlobalState = 'VOTING';
+                currentYoutubeId = ""; // Reset to prep for next song
+            }
+            handleVotingUI(data.current_song_id, data.current_singer);
+        }
         
+        // 2. Manejo de la Cola
         const queueList = document.getElementById('queueList');
         if (data.queue && data.queue.length > 0) {
             let html = '<div class="list-group">';
-            data.queue.forEach(song => {
+            data.queue.forEach((song, idx) => {
+                let badge = idx === 0 ? '<span class="badge badge-danger float-right ml-2">Siguiente</span>' : '';
                 html += `
-                <div class="list-group-item d-flex align-items-center mb-3 p-3 border-0">
+                <div class="list-group-item d-flex align-items-center mb-3 p-3 border-0" style="${idx === 0 ? 'border-left: 4px solid var(--accent-color) !important;' : ''}">
                     <div class="rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px; background: rgba(183, 107, 255, 0.2); color: var(--accent-color);">
                         <i class="fas fa-microphone"></i>
                     </div>
-                    <div>
-                        <h6 class="mb-1 text-white font-weight-bold" style="font-size: 1.1rem;">${song.title}</h6>
+                    <div class="w-100">
+                        <h6 class="mb-1 text-white font-weight-bold" style="font-size: 1.1rem;">${song.title} ${badge}</h6>
                         <p class="mb-0" style="color: var(--primary-color); font-size: 0.85rem;">
-                            Por: ${song.added_by}
+                            Canta: ${song.added_by}
                         </p>
                     </div>
                 </div>`;
@@ -150,14 +264,16 @@ async function pollState() {
             queueList.innerHTML = `
             <div class="text-center text-muted mt-5">
                 <i class="fas fa-music fa-2x mb-3" style="opacity: 0.5;"></i>
-                <p>No hay canciones pendientes.</p>
+                <p>No hay cantantes en la fila.</p>
             </div>`;
         }
     } catch (e) {
         console.error("Polling error", e);
     }
 }
-setInterval(pollState, 3000);
+// Short Polling agressivo cada 2 segundos para sincronizar el countdown!
+setInterval(pollState, 2000);
+pollState(); // Inicial
 
 document.getElementById('searchForm').addEventListener('submit', async (e) => {
     e.preventDefault();

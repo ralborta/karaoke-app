@@ -29,8 +29,19 @@
             </div>
         </div>
 
+        <!-- Panel de Estado Activo (Game Show) -->
+        <div class="col-lg-12 mb-4" id="activeStatePanel" style="display: none;">
+            <div class="glass-card p-5 text-center" style="border: 2px solid var(--accent-color); background: rgba(0, 242, 254, 0.05);">
+                <h2 class="text-white mb-3" id="activeTitle">🎤 En Progreso</h2>
+                <h4 class="text-primary mb-5" id="activeSinger">Canta: </h4>
+                <div id="activeControls">
+                    <!-- Buttons injected via JS -->
+                </div>
+            </div>
+        </div>
+
         <!-- Panel de Lista de Reproducción -->
-        <div class="col-lg-12">
+        <div class="col-lg-12" id="queuePanel">
             <div class="glass-card p-4">
                 <h4 class="text-white mb-4"><i class="fas fa-list text-primary mr-2"></i> Gestión de la Cola</h4>
                 <div class="table-responsive">
@@ -55,8 +66,8 @@
                                     </span>
                                 </td>
                                 <td class="border-top-0 align-middle text-right">
-                                    <button class="btn btn-sm btn-success mr-2 shadow-sm" onclick="emitSong({{ song.id }}, '{{ song.youtube_id }}')" title="Reproducir este video automáticamente en las pantallas de todos los invitados.">
-                                        <i class="fas fa-bolt"></i> Emitir a Todos
+                                    <button class="btn btn-sm btn-success mr-2 shadow-sm" onclick="startSong({{ song.id }})" title="Iniciar cuenta regresiva y emitir a todos.">
+                                        <i class="fas fa-play-circle"></i> Iniciar Canción
                                     </button>
                                     <button class="btn btn-sm btn-danger shadow-sm" onclick="removeSong({{ song.id }})">
                                         <i class="fas fa-trash"></i> Eliminar
@@ -82,32 +93,59 @@
 
 {% block extra_js %}
 <script>
-async function emitSong(songId, youtubeId) {
+async function pollAdminState() {
     try {
-        // 1. Actualiza el stream global con el video de esta canción
-        const res = await fetch('/party/stream/update', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({url: youtubeId})
-        });
+        const res = await fetch('/party/state');
         const data = await res.json();
+        const panel = document.getElementById('activeStatePanel');
+        const queuePanel = document.getElementById('queuePanel');
         
-        if (data.success) {
-            // 2. Eliminar la canción de la cola y recargar
-            const res2 = await fetch(`/remove_song/${songId}`, { method: 'POST' });
-            const data2 = await res2.json();
-            if (data2.success) {
-                location.reload();
-            } else {
-                alert("La canción se emitió pero hubo un error al borrarla de la cola.");
-            }
+        if (data.party_state === 'IDLE') {
+            panel.style.display = 'none';
+            queuePanel.style.display = 'block';
         } else {
-            alert("Error al emitir: " + data.error);
+            panel.style.display = 'block';
+            queuePanel.style.display = 'none';
+            document.getElementById('activeSinger').innerText = '🎤 Cantante Actual: ' + data.current_singer;
+            const controls = document.getElementById('activeControls');
+            let remain = parseInt(data.countdown_end) - data.server_time;
+            
+            if (data.party_state === 'COUNTDOWN') {
+                if (remain > 0) {
+                    document.getElementById('activeTitle').innerHTML = '⏳ Cuenta Regresiva... ' + Math.ceil(remain/1000);
+                } else {
+                    document.getElementById('activeTitle').innerHTML = '🎶 Cantando Ahora';
+                }
+                controls.innerHTML = `<button class="btn btn-danger btn-lg shadow" onclick="finishSong()"><i class="fas fa-stop"></i> Finalizar Canción y Abrir Votación</button>`;
+            } else if (data.party_state === 'VOTING') {
+                document.getElementById('activeTitle').innerHTML = '⭐ Recolectando Votos de la Audiencia...';
+                controls.innerHTML = `<button class="btn btn-success btn-lg shadow" onclick="closeVoting()"><i class="fas fa-check-double"></i> Cerrar Votación y Volver a Cola</button>`;
+            }
         }
     } catch(e) {
-        alert("Error de conexión al emitir la canción.");
+        console.error(e);
     }
 }
+setInterval(pollAdminState, 2000);
+pollAdminState();
+
+async function startSong(songId) {
+    if(confirm('¿Iniciar esta canción con 5 segundos de cuenta regresiva global?')) {
+        await fetch('/party/start/' + songId, {method: 'POST'});
+        pollAdminState();
+    }
+}
+async function finishSong() {
+    if(confirm('¿Terminó de cantar? Esto detendrá el video y abrirá las 5 estrellas a todos los invitados.')) {
+        await fetch('/party/finish', {method: 'POST'});
+        pollAdminState();
+    }
+}
+async function closeVoting() {
+    await fetch('/party/close_voting', {method: 'POST'});
+    location.reload(); 
+}
+
 async function updateStreamUrl() {
     const url = document.getElementById('streamUrlInput').value;
     const btn = event.currentTarget;

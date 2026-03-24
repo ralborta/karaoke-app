@@ -65,6 +65,7 @@ def create_app(config_name='default'):
             from app.models.user import User
             from app.models.song import Song, Performance
             from app.models.setting import Setting
+            from app.models.vote import Vote
             db.create_all()
             admin = User.query.filter_by(username='admin').first()
             if not admin:

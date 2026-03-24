@@ -36,7 +36,8 @@ def create_database():
         # Import models (already imported globally, but keeping this for consistency with instruction's snippet)
         from app.models.user import User
         from app.models.song import Song, Performance
-        from app.models.setting import Setting # Ensure Setting is imported here too if needed locally
+        from app.models.setting import Setting
+        from app.models.vote import Vote # Ensure Setting is imported here too if needed locally
         
         try:
             # Borrar las tablas antiguas y aplicar el nuevo esquema

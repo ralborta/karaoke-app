@@ -3,8 +3,10 @@ from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.song import Song, Performance
 from app.models.setting import Setting
+from app.models.vote import Vote
 from app.extensions import db
 import logging
+import time
 from datetime import datetime
 import os
 from googleapiclient.discovery import build
@@ -240,6 +242,19 @@ def party_state():
     """Endpoint for clients to poll the live state of the party"""
     try:
         url = Setting.get_value('STREAM_URL', '')
+        state = Setting.get_value('PARTY_STATE', 'IDLE')
+        now_ts = int(time.time() * 1000)
+        
+        party_data = {
+            'stream_url': url,
+            'party_state': state,
+            'server_time': now_ts,
+            'current_song_id': Setting.get_value('CURRENT_SONG_ID', ''),
+            'current_singer': Setting.get_value('CURRENT_SINGER', ''),
+            'current_youtube_id': Setting.get_value('CURRENT_YOUTUBE_ID', ''),
+            'countdown_end': Setting.get_value('COUNTDOWN_END', '0')
+        }
+        
         songs = Song.query.order_by(Song.id.desc()).all()
         queue = []
         for s in songs:
@@ -250,7 +265,77 @@ def party_state():
                 'youtube_id': s.youtube_id,
                 'added_by': s.adder.username if s.adder else 'Anónimo'
             })
-        return jsonify({'stream_url': url, 'queue': queue})
+        party_data['queue'] = queue
+        return jsonify(party_data)
     except Exception as e:
         logger.error(f"Error fetching party state: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/party/start/<int:song_id>', methods=['POST'])
+@login_required
+def party_start(song_id):
+    """Admin starts a song with a countdown"""
+    if not current_user.is_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+        
+    song = Song.query.get_or_404(song_id)
+    countdown_ms = int(time.time() * 1000) + 6000  # 6 seconds in future
+    
+    Setting.set_value('PARTY_STATE', 'COUNTDOWN')
+    Setting.set_value('CURRENT_SONG_ID', str(song.id))
+    Setting.set_value('CURRENT_SINGER', song.adder.username if song.adder else 'Anónimo')
+    Setting.set_value('CURRENT_YOUTUBE_ID', song.youtube_id)
+    Setting.set_value('COUNTDOWN_END', str(countdown_ms))
+    
+    return jsonify({'success': True})
+
+@main_bp.route('/party/finish', methods=['POST'])
+@login_required
+def party_finish():
+    """Admin finishes the song, opens voting"""
+    if not current_user.is_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+        
+    Setting.set_value('PARTY_STATE', 'VOTING')
+    return jsonify({'success': True})
+
+@main_bp.route('/party/close_voting', methods=['POST'])
+@login_required
+def party_close_voting():
+    """Admin closes voting and removes song from queue"""
+    if not current_user.is_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+        
+    song_id_str = Setting.get_value('CURRENT_SONG_ID', '')
+    if song_id_str.isdigit():
+        # Remove song from DB completely as it is finished
+        song = Song.query.get(int(song_id_str))
+        if song:
+            db.session.delete(song)
+            db.session.commit()
+            
+    Setting.set_value('PARTY_STATE', 'IDLE')
+    Setting.set_value('CURRENT_SONG_ID', '')
+    Setting.set_value('CURRENT_SINGER', '')
+    Setting.set_value('CURRENT_YOUTUBE_ID', '')
+    Setting.set_value('COUNTDOWN_END', '0')
+    
+    return jsonify({'success': True})
+
+@main_bp.route('/party/vote/<int:song_id>', methods=['POST'])
+def party_vote(song_id):
+    """User submits a 1-5 star vote"""
+    try:
+        data = request.json
+        score = int(data.get('score', 0))
+        if score < 1 or score > 5:
+            return jsonify({'error': 'Invalid score'}), 400
+            
+        voter = current_user.username if current_user.is_authenticated else 'Invitado'
+        vote = Vote(song_id=song_id, voter_name=voter, score=score)
+        db.session.add(vote)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error voting: {str(e)}")
         return jsonify({'error': str(e)}), 500

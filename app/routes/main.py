@@ -9,8 +9,6 @@ import logging
 import time
 from datetime import datetime
 import os
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 import random
 
 main_bp = Blueprint('main', __name__)
@@ -75,6 +73,9 @@ def search():
         return jsonify({'error': 'Query vacío'}), 400
 
     try:
+        from googleapiclient.discovery import build
+        from googleapiclient.errors import HttpError
+        
         youtube = build('youtube', 'v3', 
                        developerKey=os.environ.get('YOUTUBE_API_KEY'))
         

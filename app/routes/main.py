@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.song import Song, Performance
+from app.models.setting import Setting
 from app.extensions import db
 import logging
 from datetime import datetime
@@ -23,7 +24,8 @@ def party():
     """Página principal de la fiesta de karaoke"""
     try:
         songs = Song.query.order_by(Song.id.desc()).all()
-        return render_template('main/party.html', songs=songs)
+        stream_url = Setting.get_value('STREAM_URL', '')
+        return render_template('main/party.html', songs=songs, stream_url=stream_url)
     except Exception as e:
         logger.error(f"Error en party: {str(e)}")
         flash('Error al cargar la lista de canciones', 'danger')
@@ -39,7 +41,8 @@ def party_control():
     
     try:
         songs = Song.query.order_by(Song.id.desc()).all()
-        return render_template('main/control.html', songs=songs)
+        stream_url = Setting.get_value('STREAM_URL', '')
+        return render_template('main/control.html', songs=songs, stream_url=stream_url)
     except Exception as e:
         logger.error(f"Error en party_control: {str(e)}")
         flash('Error al cargar el panel de control', 'danger')
@@ -210,3 +213,24 @@ def user_stats():
     except Exception as e:
         logger.error(f"Error obteniendo estadísticas: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/party/stream/update', methods=['POST'])
+@login_required
+def update_stream():
+    """Actualiza la URL del stream para la cola de reproducción mundial"""
+    if not current_user.is_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+    
+    try:
+        data = request.json
+        url = data.get('url', '')
+        Setting.set_value('STREAM_URL', url)
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error updating stream URL: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/party/stream/get', methods=['GET'])
+def get_stream():
+    """Obtener la URL de transmisión en vivo actual"""
+    return jsonify({'url': Setting.get_value('STREAM_URL', '')})

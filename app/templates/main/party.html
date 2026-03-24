@@ -3,35 +3,66 @@
 {% block title %}Fiesta Karaoke{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h2>Fiesta Karaoke</h2>
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Próximos cantantes</h5>
-                <div class="song-list">
-                    {% if songs %}
-                        <ul class="list-group">
-                        {% for song in songs %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>{{ song.title }}</strong>
-                                    <br><small class="text-muted">Añadida por: {{ song.adder.username if song.adder else 'Anónimo' }}</small>
-                                </div>
-                            </li>
-                        {% endfor %}
-                        </ul>
+<div class="container-fluid py-4 px-lg-5">
+    <div class="row" style="height: calc(100vh - 100px);">
+        <!-- Stream Column -->
+        <div class="col-lg-8 mb-4 h-100">
+            <div class="glass-card p-3 h-100 d-flex flex-column">
+                <h4 class="mb-3 font-weight-bold" style="color: var(--primary-color);">
+                    <i class="fab fa-youtube text-danger mr-2"></i> Transmisión en Vivo
+                </h4>
+                <div class="flex-grow-1 position-relative" style="background: rgba(0,0,0,0.4); border-radius: 12px; overflow: hidden; min-height: 400px;">
+                    {% if stream_url %}
+                        <iframe src="{% if 'youtube.com' not in stream_url and 'youtu.be' not in stream_url %}https://www.youtube.com/embed/{{ stream_url }}?autoplay=1{% else %}{{ stream_url }}{% endif %}" 
+                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                                frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                     {% else %}
-                        <p>No hay canciones en la lista</p>
+                        <div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center text-muted">
+                            <i class="fas fa-video fa-3x mb-3" style="opacity: 0.5;"></i>
+                            <h5 style="opacity: 0.7;">Esperando que el Host inicie la cámara...</h5>
+                        </div>
                     {% endif %}
                 </div>
-                <button class="btn btn-primary mt-3" data-toggle="modal" data-target="#addSongModal">
-                    Agregar Canción
-                </button>
+            </div>
+        </div>
+
+        <!-- Queue Column -->
+        <div class="col-lg-4 h-100">
+            <div class="glass-card p-4 h-100 d-flex flex-column">
+                <h4 class="mb-4 font-weight-bold text-white">Cola de Cantantes</h4>
+                <div class="flex-grow-1" style="overflow-y: auto;">
+                    {% if songs %}
+                        <div class="list-group">
+                        {% for song in songs %}
+                            <div class="list-group-item d-flex align-items-center mb-3 p-3 border-0">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px; background: rgba(183, 107, 255, 0.2); color: var(--accent-color);">
+                                    <i class="fas fa-microphone"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1 text-white font-weight-bold" style="font-size: 1.1rem;">{{ song.title }}</h6>
+                                    <p class="mb-0" style="color: var(--primary-color); font-size: 0.85rem;">
+                                        Por: {{ song.adder.username if song.adder else 'Anónimo' }}
+                                    </p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted mt-5">
+                            <i class="fas fa-music fa-2x mb-3" style="opacity: 0.5;"></i>
+                            <p>No hay canciones pendientes.</p>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Floating Action Button -->
+<button class="fab-btn btn-primary" data-toggle="modal" data-target="#addSongModal" title="Pedir Canción">
+    <i class="fas fa-plus"></i>
+</button>
 
 <!-- Modal para agregar canción -->
 <div class="modal fade" id="addSongModal" tabindex="-1">

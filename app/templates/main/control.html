@@ -3,66 +3,119 @@
 {% block title %}Panel de Control - Karaoke{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2>Panel de Control</h2>
-    
-    <!-- Lista de Canciones -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3 class="card-title">Lista de Reproducción</h3>
-        </div>
-        <div class="card-body">
-            {% if songs %}
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Título</th>
-                            <th>Artista</th>
-                            <th>Agregado por</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for song in songs %}
-                        <tr>
-                            <td>{{ song.title }}</td>
-                            <td>{{ song.artist }}</td>
-                            <td>{{ song.adder.username if song.adder else 'Anónimo' }}</td>
-                            <td>
-                                <a href="{{ url_for('main.karaoke', song_id=song.id) }}" class="btn btn-sm btn-success mr-2">
-                                    <i class="fas fa-play"></i> Emitir / Cantar
-                                </a>
-                                <button class="btn btn-sm btn-danger" 
-                                        onclick="removeSong({{ song.id }})">
-                                    <i class="fas fa-trash"></i> Eliminar
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>No hay canciones en la lista</p>
-            {% endif %}
-        </div>
+<div class="container-fluid py-4 px-lg-5">
+    <!-- Título y Volver -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-white font-weight-bold"><i class="fas fa-sliders-h text-primary"></i> Panel de Control del Host</h2>
+        <a href="{{ url_for('main.party') }}" class="btn btn-outline-light"><i class="fas fa-arrow-left"></i> Volver a la Fiesta</a>
     </div>
 
-    <!-- Controles -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Controles</h3>
+    <div class="row">
+        <!-- Panel de Configuración de Stream -->
+        <div class="col-lg-12 mb-4">
+            <div class="glass-card p-4" style="border-left: 4px solid var(--primary-color);">
+                <h4 class="text-white mb-3"><i class="fas fa-broadcast-tower text-danger mr-2"></i> Transmisión Global de YouTube Live</h4>
+                <p class="text-muted small mb-3">Introduce la URL o ID de tu transmisión de OBS/YouTube aquí. Esto aparecerá en la pantalla de todos los invitados en tiempo real.</p>
+                <div class="form-row">
+                    <div class="col-md-9 mb-2 mb-md-0">
+                        <input type="text" id="streamUrlInput" class="form-control form-control-lg" value="{{ stream_url }}" placeholder="Ej: https://www.youtube.com/embed/TU_LIVE_ID">
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary btn-lg w-100 h-100" onclick="updateStreamUrl()">
+                            <i class="fas fa-sync-alt"></i> Publicar Stream
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <button class="btn btn-primary" onclick="nextSong()">
-                Siguiente Canción
-            </button>
+
+        <!-- Panel de Lista de Reproducción -->
+        <div class="col-lg-12">
+            <div class="glass-card p-4">
+                <h4 class="text-white mb-4"><i class="fas fa-list text-primary mr-2"></i> Gestión de la Cola</h4>
+                <div class="table-responsive">
+                    {% if songs %}
+                    <table class="table text-white">
+                        <thead style="background: rgba(255,255,255,0.05);">
+                            <tr>
+                                <th class="border-0 rounded-left">Canción</th>
+                                <th class="border-0">Cantante Responsable</th>
+                                <th class="border-0 text-right rounded-right">Acciones del Host</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for song in songs %}
+                            <tr style="background: rgba(255,255,255,0.02); transition: all 0.2s;">
+                                <td class="border-top-0 align-middle">
+                                    <h6 class="mb-0 font-weight-bold">{{ song.title }}</h6>
+                                </td>
+                                <td class="border-top-0 align-middle">
+                                    <span class="badge badge-primary px-2 py-1" style="background: rgba(183, 107, 255, 0.2); color: var(--accent-color);">
+                                        <i class="fas fa-user mr-1"></i> {{ song.adder.username if song.adder else 'Anónimo' }}
+                                    </span>
+                                </td>
+                                <td class="border-top-0 align-middle text-right">
+                                    <a href="{{ url_for('main.karaoke', song_id=song.id) }}" class="btn btn-sm btn-success mr-2 shadow-sm" target="_blank" title="Abre el karaoke en una nueva pestaña para capturarlo en OBS.">
+                                        <i class="fas fa-play"></i> Emitir
+                                    </a>
+                                    <button class="btn btn-sm btn-danger shadow-sm" onclick="removeSong({{ song.id }})">
+                                        <i class="fas fa-check"></i> Marcar Cantada / Eliminar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="text-center text-muted my-5">
+                        <i class="fas fa-glass-cheers fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>Tu cola de cantantes está vacía.</h5>
+                        <p>Invita a tu audiencia a pedir canciones desde la app.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
+async function updateStreamUrl() {
+    const url = document.getElementById('streamUrlInput').value;
+    const btn = event.currentTarget;
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publicando...';
+    
+    try {
+        const res = await fetch('/party/stream/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: url})
+        });
+        const data = await res.json();
+        if(data.success) {
+            btn.innerHTML = '<i class="fas fa-check"></i> ¡En vivo!';
+            btn.classList.replace('btn-primary', 'btn-success');
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.replace('btn-success', 'btn-primary');
+                btn.disabled = false;
+            }, 3000);
+        } else {
+            alert("Error: " + data.error);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    } catch(e) {
+        alert("Error de conexión");
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
 function removeSong(songId) {
     if (confirm('¿Estás seguro de querer eliminar esta canción?')) {
         fetch(`/remove_song/${songId}`, {

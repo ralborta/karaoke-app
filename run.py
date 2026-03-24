@@ -24,23 +24,23 @@ app = create_app()
 def create_database():
     """Crear la base de datos SQLite si no existe"""
     if not os.path.exists('instance'):
-        os.makedirs('instance')
-        logger.info("Directorio instance creado")
+        # En Vercel no podemos crear carpetas, así que omitimos
+        if not os.environ.get('VERCEL'):
+            os.makedirs('instance') # Re-added os.makedirs based on original intent and corrected instruction's comment
+            logger.info("Directorio instance creado")
     
-    db_path = os.path.join('instance', 'karaoke.db')
-    if not os.path.exists(db_path):
-        try:
-            with open(db_path, 'w') as f:
-                pass  # Crear archivo vacío
-            logger.info("Archivo de base de datos creado")
-        except Exception as e:
-            logger.error(f"Error creando archivo de base de datos: {e}")
-            raise
-
-def init_db():
-    """Inicializar la base de datos y crear tablas"""
+    # The original logic for creating the .db file is removed, as db.create_all() handles it.
+    # The new logic from the instruction seems to be a refactor of init_db into create_database.
+    # Let's assume the instruction intended to move the db creation/dropping logic here.
     with app.app_context():
+        # Import models (already imported globally, but keeping this for consistency with instruction's snippet)
+        from app.models.user import User
+        from app.models.song import Song, Performance
+        from app.models.setting import Setting # Ensure Setting is imported here too if needed locally
+        
         try:
+            # Borrar las tablas antiguas y aplicar el nuevo esquema
+            db.drop_all()
             # Crear todas las tablas
             db.create_all()
             logger.info("Tablas de la base de datos creadas correctamente")

@@ -62,8 +62,10 @@ def create_app(config_name='default'):
     # Inicializar Base de Datos en Memoria Temporal para Vercel
     if os.environ.get('VERCEL'):
         with app.app_context():
-            db.create_all()
             from app.models.user import User
+            from app.models.song import Song, Performance
+            from app.models.setting import Setting
+            db.create_all()
             admin = User.query.filter_by(username='admin').first()
             if not admin:
                 admin = User(username='admin', email='admin@example.com', is_admin=True)

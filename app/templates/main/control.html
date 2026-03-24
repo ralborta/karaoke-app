@@ -10,14 +10,32 @@
         <a href="{{ url_for('main.party') }}" class="btn btn-outline-light"><i class="fas fa-arrow-left"></i> Volver a la Fiesta</a>
     </div>
 
-    <div class="row">
         <!-- Panel de Estado Activo (Game Show) -->
-        <div class="col-lg-12 mb-4" id="activeStatePanel" style="display: none;">
-            <div class="glass-card p-5 text-center" style="border: 2px solid var(--accent-color); background: rgba(0, 242, 254, 0.05);">
-                <h2 class="text-white mb-3" id="activeTitle">🎤 En Progreso</h2>
-                <h4 class="text-primary mb-5" id="activeSinger">Canta: </h4>
-                <div id="activeControls">
-                    <!-- Buttons injected via JS -->
+        <div class="col-lg-12 mb-5" id="activeStatePanel" style="display: none;">
+            <div class="glass-card p-0 overflow-hidden" style="border: 1px solid rgba(0, 242, 254, 0.3); border-radius: 20px; box-shadow: 0 10px 40px rgba(0, 242, 254, 0.15);">
+                <!-- Animated Header -->
+                <div class="px-3 py-4 text-center" style="background: linear-gradient(90deg, rgba(110, 44, 184, 0.9), rgba(0, 242, 254, 0.9)); border-bottom: 1px solid rgba(255,255,255,0.2);">
+                    <h3 class="text-white mb-0 font-weight-bold" style="letter-spacing: 3px; text-transform: uppercase;">
+                        <i class="fas fa-broadcast-tower text-danger mr-2" style="animation: pulse 1.5s infinite;"></i> ON AIR / EN VIVO
+                    </h3>
+                </div>
+                
+                <div class="py-5 px-4 text-center position-relative">
+                    <!-- Background Glow -->
+                    <div class="position-absolute" style="top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; background: var(--primary-color); filter: blur(120px); opacity: 0.3; border-radius: 50%; z-index: 0;"></div>
+                    
+                    <div class="position-relative" style="z-index: 1;">
+                        <h1 class="text-white mb-3 display-4 font-weight-bold" id="activeTitle" style="text-shadow: 0 4px 15px rgba(0,0,0,0.5);">🎤 En Progreso</h1>
+                        
+                        <div class="d-inline-flex align-items-center justify-content-center px-4 py-2 mt-2 mb-5" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 50px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);">
+                            <div class="spinner-grow text-success spinner-grow-sm mr-3" role="status" style="width: 1rem; height: 1rem;"></div>
+                            <h4 class="text-white mb-0" id="activeSinger" style="font-weight: 300; letter-spacing: 1px;">Canta: </h4>
+                        </div>
+    
+                        <div id="activeControls" class="mt-2 w-100">
+                            <!-- Buttons injected via JS -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -88,7 +106,7 @@ async function pollAdminState() {
         } else {
             panel.style.display = 'block';
             queuePanel.style.display = 'none';
-            document.getElementById('activeSinger').innerText = '🎤 Cantante Actual: ' + data.current_singer;
+            document.getElementById('activeSinger').innerHTML = 'En pantalla: <strong class="text-accent">' + data.current_singer + '</strong>';
             const controls = document.getElementById('activeControls');
             let remain = parseInt(data.countdown_end) - data.server_time;
             
@@ -98,10 +116,10 @@ async function pollAdminState() {
                 } else {
                     document.getElementById('activeTitle').innerHTML = '🎶 Cantando Ahora';
                 }
-                controls.innerHTML = `<button class="btn btn-danger btn-lg shadow" onclick="finishSong()"><i class="fas fa-stop"></i> Finalizar Canción y Abrir Votación</button>`;
+                controls.innerHTML = `<button class="btn btn-danger shadow-lg px-4 py-3 rounded-pill text-uppercase font-weight-bold" style="font-size: 1.1rem; letter-spacing: 1px; width: 100%; max-width: 400px; transform: scale(1); transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="finishSong()"><i class="fas fa-stop-circle mr-2 fa-lg"></i> Detener y Abrir Estrellas</button>`;
             } else if (data.party_state === 'VOTING') {
-                document.getElementById('activeTitle').innerHTML = '⭐ Recolectando Votos de la Audiencia...';
-                controls.innerHTML = `<button class="btn btn-success btn-lg shadow" onclick="closeVoting()"><i class="fas fa-check-double"></i> Cerrar Votación y Volver a Cola</button>`;
+                document.getElementById('activeTitle').innerHTML = '⭐ Recolectando Votos...';
+                controls.innerHTML = `<button class="btn btn-success shadow-lg px-4 py-3 rounded-pill text-uppercase font-weight-bold" style="font-size: 1.1rem; letter-spacing: 1px; width: 100%; max-width: 400px; transform: scale(1); transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="closeVoting()"><i class="fas fa-check-double mr-2 fa-lg"></i> Volver a la Lista</button>`;
             }
         }
     } catch(e) {
